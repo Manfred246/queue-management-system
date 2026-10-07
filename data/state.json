@@ -1,0 +1,36 @@
+{
+  "users": [],
+  "services": [
+    {
+      "id": 1,
+      "name": "Консультация",
+      "average_service_time": 7,
+      "is_available": true
+    },
+    {
+      "id": 2,
+      "name": "Оформление документов",
+      "average_service_time": 12,
+      "is_available": true
+    }
+  ],
+  "queues": [
+    {
+      "id": 1,
+      "name": "Основная очередь",
+      "service_id": 1,
+      "prefix": "A",
+      "is_open": true,
+      "last_ticket_number": 24
+    },
+    {
+      "id": 2,
+      "name": "Очередь документов",
+      "service_id": 2,
+      "prefix": "B",
+      "is_open": true,
+      "last_ticket_number": 0
+    }
+  ],
+  "tickets": []
+}
