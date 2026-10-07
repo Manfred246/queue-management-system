@@ -1,19 +1,14 @@
 """Консольный интерфейс системы управления электронной очередью."""
 
 from copy import deepcopy
-from datetime import datetime
 from pathlib import Path
 
-from queues import add_queue, set_queue_open
+from queues import add_queue
 from services import (
-    add_service, filter_services, find_services, set_service_available,
-    sort_services,
+    Service, add_service, filter_services, find_services, sort_services,
 )
 from storage import DATA_FILE, load_state, save_state
-from tickets import (
-    calculate_wait_time, call_next_ticket, cancel_ticket, complete_ticket,
-    issue_ticket, ticket_position, ticket_status,
-)
+from tickets import Ticket, find_ticket, issue_ticket
 from users import add_user
 from utils import input_int, input_text
 
@@ -36,51 +31,49 @@ MENU = """
 """
 
 
-def select_record(records: dict, prompt: str) -> dict:
-    """Выбрать существующую сущность по ID без аварийного завершения."""
+def input_id(records: dict, prompt: str) -> int:
+    """Прочитать ID и проверить, что запись существует."""
     identifier = input_int(prompt)
     if identifier not in records:
         raise ValueError("Запись с таким ID не найдена.")
-    return records[identifier]
+    return identifier
 
 
-def show_services(services: list[dict]) -> None:
+def show_services(services: list[Service]) -> None:
     """Показать услуги, длительность и доступность."""
     for service in services:
-        available = "доступна" if service["is_available"] else "недоступна"
-        print(f'{service["id"]}: {service["name"]}, '
-              f'{service["average_service_time"]} мин., {available}')
+        print(service)
     if not services:
         print("Услуги не найдены.")
 
 
-def show_ticket(state: dict, ticket: dict) -> None:
+def show_ticket(state: dict, ticket: Ticket) -> None:
     """Показать талон и текущую оценку ожидания, как в сценарии ПР1."""
-    queue = state["queues"][ticket["queue_id"]]
-    service = state["services"][ticket["service_id"]]
-    user = state["users"][ticket["user_id"]]
-    print(f'ID {ticket["id"]}: {queue["prefix"]}{ticket["number"]}')
-    print(f'Посетитель: {user["name"]}; услуга: {service["name"]}')
-    print(f'Очередь: {queue["name"]}')
-    print("Статус:", ticket_status(state["tickets"], ticket))
-    if ticket["status"] == "waiting":
-        ahead = ticket_position(state["tickets"], ticket)
-        wait = calculate_wait_time(ahead, service["average_service_time"])
+    print(ticket)
+    print(f"Очередь: {ticket.queue.name}")
+    print("Статус:", ticket.status_text(state["tickets"]))
+    if ticket.status == "waiting":
+        ahead = ticket.position(state["tickets"])
+        wait = ticket.wait_time(state["tickets"])
         print(f"Людей перед вами: {ahead}; ожидаемое время: {wait} мин.")
-    issued_at = datetime.fromisoformat(ticket["issued_at"])
-    print("Время выдачи:", issued_at.strftime("%d.%m.%Y %H:%M"))
+    print("Время выдачи:", ticket.issued_at.strftime("%d.%m.%Y %H:%M"))
 
 
 def perform_action(state: dict, choice: str) -> bool:
     """Выполнить пункт меню; вернуть признак изменения данных."""
-    services, queues = state["services"], state["queues"]
-    users, tickets = state["users"], state["tickets"]
+    services = state["services"]
+    queues = state["queues"]
+    users = state["users"]
+    tickets = state["tickets"]
+
     if choice == "1":
         show_services(sort_services(services))
     elif choice == "2":
-        show_services(find_services(services, input_text("Название: ")))
+        query = input_text("Название: ")
+        show_services(find_services(services, query))
     elif choice == "3":
-        show_services(filter_services(services, input_int("Максимум минут: ")))
+        max_time = input_int("Максимум минут: ")
+        show_services(filter_services(services, max_time))
     elif choice == "4":
         name = input_text("Название услуги: ")
         minutes = input_int("Среднее время обслуживания (мин.): ")
@@ -89,28 +82,28 @@ def perform_action(state: dict, choice: str) -> bool:
         add_queue(queues, service, f"Очередь: {name}", prefix)
     elif choice == "5":
         for queue in queues.values():
-            status = "открыта" if queue["is_open"] else "закрыта"
-            print(f'{queue["id"]}: {queue["name"]}, {status}, '
-                  f'услуга ID {queue["service_id"]}')
+            print(queue)
     elif choice == "6":
-        queue = select_record(queues, "ID очереди: ")
-        set_queue_open(queue, not queue["is_open"])
+        queue_id = input_id(queues, "ID очереди: ")
+        queue = queues[queue_id]
+        queue.set_open(not queue.is_open)
     elif choice == "7":
         for user in users.values():
-            role = "посетитель" if user["role"] == "visitor" else "сотрудник"
-            print(f'{user["id"]}: {user["name"]}, {role}')
+            print(user)
         if not users:
             print("Пользователей пока нет. Добавьте пользователя (пункт 8).")
     elif choice == "8":
         name = input_text("Имя: ")
         role = input_text("Роль (visitor / employee): ")
         user = add_user(users, name, role)
-        print(f'Пользователь добавлен, ID {user["id"]}.')
+        print(f"Пользователь добавлен, ID {user.id}.")
     elif choice == "9":
-        user = select_record(users, "ID посетителя: ")
-        service = select_record(services, "ID услуги: ")
-        queue = select_record(queues, "ID очереди: ")
-        ticket = issue_ticket(tickets, user, service, queue)
+        user_id = input_id(users, "ID посетителя: ")
+        service_id = input_id(services, "ID услуги: ")
+        queue_id = input_id(queues, "ID очереди: ")
+        ticket = issue_ticket(
+            tickets, users[user_id], services[service_id], queues[queue_id],
+        )
         print("=== Талон выдан ===")
         show_ticket(state, ticket)
     elif choice == "10":
@@ -120,15 +113,21 @@ def perform_action(state: dict, choice: str) -> bool:
         if not tickets:
             print("Талонов пока нет.")
     elif choice == "11":
-        cancel_ticket(tickets, input_int("ID талона: "))
+        ticket_id = input_int("ID талона: ")
+        ticket = find_ticket(tickets, ticket_id)
+        ticket.cancel()
     elif choice == "12":
-        queue = select_record(queues, "ID очереди: ")
-        show_ticket(state, call_next_ticket(tickets, queue["id"]))
+        queue_id = input_id(queues, "ID очереди: ")
+        ticket = queues[queue_id].call_next(tickets)
+        show_ticket(state, ticket)
     elif choice == "13":
-        complete_ticket(tickets, input_int("ID талона: "))
+        ticket_id = input_int("ID талона: ")
+        ticket = find_ticket(tickets, ticket_id)
+        ticket.complete()
     elif choice == "14":
-        service = select_record(services, "ID услуги: ")
-        set_service_available(service, not service["is_available"])
+        service_id = input_id(services, "ID услуги: ")
+        service = services[service_id]
+        service.set_available(not service.is_available)
     else:
         raise ValueError("Неизвестный пункт меню.")
     return choice in {"4", "6", "8", "9", "11", "12", "13", "14"}

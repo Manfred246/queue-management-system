@@ -23,14 +23,17 @@ def validate_data(data: dict) -> None:
             if identifier in indexed[name]:
                 raise ValueError("Повторяющийся идентификатор.")
             indexed[name][identifier] = item
+
     for user in data["users"]:
         require_text(user["name"])
         if user["role"] not in ("visitor", "employee"):
             raise ValueError("Неизвестная роль пользователя.")
+
     for service in data["services"]:
         require_text(service["name"])
         require_int(service["average_service_time"])
         require_bool(service["is_available"])
+
     prefixes = set()
     for queue in data["queues"]:
         require_text(queue["name"])
@@ -43,7 +46,10 @@ def validate_data(data: dict) -> None:
         require_int(queue["service_id"])
         if queue["service_id"] not in indexed["services"]:
             raise ValueError("У очереди отсутствует услуга.")
-    numbers, active_users, called_queues = set(), set(), set()
+
+    numbers = set()
+    active_users = set()
+    called_queues = set()
     for ticket in data["tickets"]:
         for field in ("user_id", "service_id", "queue_id", "number"):
             require_int(ticket[field])
@@ -73,3 +79,13 @@ def validate_data(data: dict) -> None:
             if ticket["queue_id"] in called_queues:
                 raise ValueError("В очереди вызвано несколько талонов.")
             called_queues.add(ticket["queue_id"])
+
+    for ticket in data["tickets"]:
+        if ticket["status"] != "called":
+            continue
+        for other in data["tickets"]:
+            if other["queue_id"] != ticket["queue_id"]:
+                continue
+            if (other["status"] == "waiting"
+                    and other["number"] < ticket["number"]):
+                raise ValueError("Вызванный талон нарушает порядок очереди.")

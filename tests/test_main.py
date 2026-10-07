@@ -26,7 +26,7 @@ def test_menu_full_scenario(state, tmp_path, monkeypatch, capsys):
     ])
     main(path)
     restored = load_state(path)
-    assert [item["status"] for item in restored["tickets"]] == [
+    assert [item.status for item in restored["tickets"]] == [
         "completed", "cancelled",
     ]
     assert len(restored["services"]) == 3

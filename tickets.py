@@ -1,25 +1,20 @@
-"""Выдача, отмена и последовательное обслуживание талонов."""
+"""Талон и функции обработки коллекции талонов."""
+
+from __future__ import annotations
 
 from datetime import datetime
 
-from queues import active_tickets
+from queues import Queue
+from services import Service
+from users import User
 from utils import require_int
-
-
-def can_issue_ticket(queue_is_open: bool, service_is_available: bool) -> bool:
-    """Проверить возможность выдачи талона (функция из ПР1)."""
-    return queue_is_open and service_is_available
-
-
-def create_ticket_number(last_ticket_number: int) -> int:
-    """Сформировать номер следующего талона (функция из ПР1)."""
-    return require_int(last_ticket_number, 0) + 1
 
 
 def calculate_wait_time(people_ahead: int, average_service_time: int) -> int:
     """Рассчитать приблизительное ожидание в минутах (ПР1)."""
-    return (require_int(people_ahead, 0)
-            * require_int(average_service_time))
+    require_int(people_ahead, 0)
+    require_int(average_service_time)
+    return people_ahead * average_service_time
 
 
 def get_ticket_status(people_ahead: int) -> str:
@@ -32,75 +27,126 @@ def get_ticket_status(people_ahead: int) -> str:
     return "Ожидание в очереди"
 
 
+class Ticket:
+    """Талон, связывающий объекты посетителя, услуги и очереди."""
+
+    STATUSES = ("waiting", "called", "completed", "cancelled")
+
+    def __init__(
+        self, ticket_id: int, number: int, user: User, service: Service,
+        queue: Queue, issued_at: datetime | None = None,
+        status: str = "waiting",
+    ) -> None:
+        if not isinstance(user, User) or not user.can_receive_ticket():
+            raise ValueError("Талон выдаётся только посетителю.")
+        if not isinstance(queue, Queue) or queue.service is not service:
+            raise ValueError("Очередь не обслуживает выбранную услугу.")
+        if status not in self.STATUSES:
+            raise ValueError("Неизвестный статус талона.")
+        if issued_at is not None and not isinstance(issued_at, datetime):
+            raise ValueError("Время выдачи должно быть datetime.")
+        self.id = require_int(ticket_id)
+        self.number = require_int(number)
+        self.user = user
+        self.service = service
+        self.queue = queue
+        if issued_at is None:
+            issued_at = datetime.now()
+        self.issued_at = issued_at
+        # При восстановлении JSON допустим любой сохранённый статус.
+        self._status = status
+
+    @property
+    def status(self) -> str:
+        """Статус доступен для чтения; переходы выполняются методами."""
+        return self._status
+
+    @property
+    def is_active(self) -> bool:
+        """Участвует ли талон в ожидании или обслуживании."""
+        return self.status in ("waiting", "called")
+
+    @property
+    def display_number(self) -> str:
+        """Номер талона с префиксом очереди."""
+        return f"{self.queue.prefix}{self.number}"
+
+    def cancel(self) -> None:
+        """Отменить активный талон без удаления из истории."""
+        if not self.is_active:
+            raise ValueError("Талон уже завершён или отменён.")
+        self._status = "cancelled"
+
+    def call(self, tickets: list[Ticket]) -> None:
+        """Вызвать ожидающий талон с соблюдением порядка очереди."""
+        active = self.queue.active_tickets(tickets)
+        for ticket in active:
+            if ticket.status == "called":
+                raise ValueError("Сначала завершите текущий вызванный талон.")
+        if self.status != "waiting" or not active or active[0] is not self:
+            raise ValueError("Вызвать можно только первый ожидающий талон.")
+        self._status = "called"
+
+    def complete(self) -> None:
+        """Завершить обслуживание вызванного талона."""
+        if self.status != "called":
+            raise ValueError("Завершить можно только вызванный талон.")
+        self._status = "completed"
+
+    def position(self, tickets: list[Ticket]) -> int:
+        """Определить число активных посетителей перед талоном."""
+        people_ahead = 0
+        for ticket in self.queue.active_tickets(tickets):
+            if ticket.number < self.number:
+                people_ahead += 1
+        return people_ahead
+
+    def wait_time(self, tickets: list[Ticket]) -> int:
+        """Рассчитать ожидание только для ожидающего талона."""
+        if self.status != "waiting":
+            return 0
+        return calculate_wait_time(
+            self.position(tickets), self.service.average_service_time,
+        )
+
+    def status_text(self, tickets: list[Ticket]) -> str:
+        """Получить статус для вывода посетителю."""
+        if self.status == "waiting":
+            return get_ticket_status(self.position(tickets))
+        if self.status == "called":
+            return "Вас вызывают к окну"
+        if self.status == "completed":
+            return "Обслужен"
+        return "Отменён"
+
+    def __str__(self) -> str:
+        return (
+            f"ID {self.id}: {self.display_number}, {self.user.name}, "
+            f"{self.service.name}, {self.status}"
+        )
+
+
 def issue_ticket(
-    tickets: list[dict], user: dict, service: dict, queue: dict,
-) -> dict:
-    """Связать посетителя, услугу и очередь новым талоном."""
-    if user["role"] != "visitor":
-        raise ValueError("Талон выдаётся только посетителю.")
-    if queue["service_id"] != service["id"]:
-        raise ValueError("Очередь не обслуживает выбранную услугу.")
-    if not can_issue_ticket(queue["is_open"], service["is_available"]):
+    tickets: list[Ticket], user: User, service: Service, queue: Queue,
+) -> Ticket:
+    """Проверить коллекцию и добавить новый объект талона."""
+    if not queue.can_issue_ticket():
         raise ValueError("Очередь закрыта или услуга недоступна.")
-    active = active_tickets(tickets, queue["id"])
-    if any(item["user_id"] == user["id"] for item in active):
-        raise ValueError("У посетителя уже есть активный талон в очереди.")
-    number = create_ticket_number(queue["last_ticket_number"])
-    ticket = {
-        "id": max((item["id"] for item in tickets), default=0) + 1,
-        "number": number, "user_id": user["id"],
-        "service_id": service["id"], "queue_id": queue["id"],
-        "status": "waiting", "issued_at": datetime.now().isoformat(),
-    }
+    for ticket in queue.active_tickets(tickets):
+        if ticket.user.id == user.id:
+            raise ValueError("У посетителя уже есть активный талон в очереди.")
+    ticket_id = max([ticket.id for ticket in tickets], default=0) + 1
+    ticket = Ticket(
+        ticket_id, queue.next_ticket_number(), user, service, queue,
+    )
+    queue.record_ticket_number(ticket.number)
     tickets.append(ticket)
-    queue["last_ticket_number"] = number
     return ticket
 
 
-def find_ticket(tickets: list[dict], ticket_id: int) -> dict:
-    """Найти талон по внутреннему идентификатору."""
+def find_ticket(tickets: list[Ticket], ticket_id: int) -> Ticket:
+    """Найти объект талона по внутреннему идентификатору."""
     for ticket in tickets:
-        if ticket["id"] == ticket_id:
+        if ticket.id == ticket_id:
             return ticket
     raise ValueError("Талон с таким ID не найден.")
-
-
-def cancel_ticket(tickets: list[dict], ticket_id: int) -> None:
-    """Отменить активный талон, сохранив его в истории."""
-    ticket = find_ticket(tickets, ticket_id)
-    if ticket["status"] not in ("waiting", "called"):
-        raise ValueError("Талон уже завершён или отменён.")
-    ticket["status"] = "cancelled"
-
-
-def call_next_ticket(tickets: list[dict], queue_id: int) -> dict:
-    """Вызвать первый ожидающий талон очереди по правилу FIFO."""
-    active = active_tickets(tickets, queue_id)
-    if any(item["status"] == "called" for item in active):
-        raise ValueError("Сначала завершите текущий вызванный талон.")
-    if not active:
-        raise ValueError("Очередь пуста.")
-    active[0]["status"] = "called"
-    return active[0]
-
-
-def complete_ticket(tickets: list[dict], ticket_id: int) -> None:
-    """Завершить обслуживание ранее вызванного талона."""
-    ticket = find_ticket(tickets, ticket_id)
-    if ticket["status"] != "called":
-        raise ValueError("Завершить можно только вызванный талон.")
-    ticket["status"] = "completed"
-
-
-def ticket_position(tickets: list[dict], ticket: dict) -> int:
-    """Рассчитать число активных посетителей перед талоном."""
-    return sum(item["number"] < ticket["number"] for item in
-               active_tickets(tickets, ticket["queue_id"]))
-
-
-def ticket_status(tickets: list[dict], ticket: dict) -> str:
-    """Вернуть фактический статус с учётом порядка очереди."""
-    if ticket["status"] == "waiting":
-        return get_ticket_status(ticket_position(tickets, ticket))
-    return {"called": "Вас вызывают к окну", "completed": "Обслужен",
-            "cancelled": "Отменён"}[ticket["status"]]
