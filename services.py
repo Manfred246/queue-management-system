@@ -70,3 +70,10 @@ def sort_services(services: dict[int, Service]) -> list[Service]:
             service.average_service_time, service.name.casefold(),
         ),
     )
+
+
+def find_service_by_id(
+    services: dict[int, Service], service_id: int,
+) -> Service | None:
+    """Найти услугу по ID или вернуть None."""
+    return services.get(service_id)

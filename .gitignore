@@ -18,3 +18,9 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Django local database
+db.sqlite3
+
+# Practice report
+output/
