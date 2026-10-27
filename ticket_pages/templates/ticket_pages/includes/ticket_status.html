@@ -1,0 +1,9 @@
+{% if ticket.status == "cancelled" %}
+    <span class="badge bg-secondary ticket-status ticket-status-cancelled">Отменён</span>
+{% elif ticket.status == "completed" %}
+    <span class="badge bg-secondary ticket-status">Обслужен</span>
+{% elif ticket.status == "called" %}
+    <span class="badge bg-primary ticket-status ticket-status-active">Вызван</span>
+{% else %}
+    <span class="badge bg-success ticket-status ticket-status-active">Ожидает</span>
+{% endif %}

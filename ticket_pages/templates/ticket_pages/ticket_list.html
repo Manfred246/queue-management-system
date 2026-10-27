@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Талоны — Система управления очередью{% endblock %}
+
+{% block content %}
+    <h1>Талоны</h1>
+    <p>Всего талонов: {{ tickets|length }}</p>
+    <ul class="list-group">
+        {% for ticket in tickets %}
+            <li class="list-group-item">
+                <a href="{% url 'tickets:ticket_detail' ticket.id %}">{{ ticket.display_number }}</a>
+                — {{ ticket.user.name }}, {{ ticket.service.name }}
+                <p>Время выдачи: {{ ticket.issued_at|date:"d.m.Y H:i" }}</p>
+                {% include "ticket_pages/includes/ticket_status.html" %}
+            </li>
+        {% empty %}
+            <li class="list-group-item">Талоны не найдены.</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

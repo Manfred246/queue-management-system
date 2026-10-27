@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Главная — Система управления очередью{% endblock %}
+
+{% block content %}
+    <h1>Система управления очередью</h1>
+    <p class="lead">Услуги, очереди и талоны посетителей.</p>
+    <p>Система помогает организовать обслуживание посетителей.</p>
+    <p>Выберите раздел для просмотра данных.</p>
+    <a class="btn btn-primary me-2" href="{% url 'catalog:services' %}">Услуги</a>
+    <a class="btn btn-secondary me-2" href="{% url 'queues:queues' %}">Очереди</a>
+    <a class="btn btn-outline-primary" href="{% url 'tickets:tickets' %}">Талоны</a>
+{% endblock %}

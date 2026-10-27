@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="64" viewBox="0 0 120 64">
+    <title>Талон электронной очереди</title>
+    <rect x="2" y="2" width="116" height="60" rx="8" fill="#0d6efd"/>
+    <path d="M88 8v48" stroke="white" stroke-width="2" stroke-dasharray="4 4"/>
+    <text x="14" y="42" fill="white" font-size="30" font-family="Arial">A25</text>
+</svg>

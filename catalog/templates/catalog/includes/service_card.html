@@ -1,0 +1,9 @@
+<article class="card service-card mb-3">
+    <div class="card-body">
+        <h2 class="card-title">{{ service.name|default:"Без названия" }}</h2>
+        <p>Среднее время обслуживания: {{ service.average_service_time }} мин.</p>
+        <a class="btn btn-primary" href="{% url 'catalog:service_detail' service.id %}">
+            Подробнее
+        </a>
+    </div>
+</article>

@@ -1,7 +1,7 @@
 # Система управления очередью
 
 Приложение для организации обслуживания посетителей.
-В ПР5 к консольной версии добавлен веб-интерфейс на Django 5.2.
+В ПР5 добавлен веб-интерфейс на Django 5.2, в ПР6 он переведён на шаблоны.
 Посетитель выбирает услугу и получает талон. Сотрудник вызывает следующего
 посетителя и завершает обслуживание.
 
@@ -95,7 +95,7 @@ python -m flake8 .
 Тесты проверяют методы классов, поиск и отбор услуг, порядок вызова,
 переходы статусов, загрузку и сохранение JSON, обработку ошибок и меню.
 
-## Веб-интерфейс ПР5
+## Веб-интерфейс ПР6
 
 Перед первым запуском примените встроенные миграции Django:
 
@@ -115,7 +115,7 @@ python manage.py runserver
 | Талоны и карточка талона | `/tickets/`, `/tickets/1/` |
 
 Конфигурация Django находится в `queue_site/`. Созданы три приложения:
-`homepage` — главная страница и общий HTML-каркас `page()`;
+`homepage` — главная страница, обработчик 404 и статические файлы;
 `catalog` — услуги и связанные с ними очереди;
 `ticket_pages` — талоны и сведения об их посетителях.
 Отдельное приложение пользователей пока не требуется: страницы регистрации
@@ -126,13 +126,50 @@ View-функции получают данные через `load_state()` из
 Классы и JSON ПР3 остаются источником данных. Веб-страницы показывают данные;
 выдача и обслуживание талонов выполняются в прежнем консольном меню.
 
-HTML формируется в Python-строках через общую функцию `page()`.
-Оформление использует CSS и Bootstrap 5.3.3 через CDN, поэтому для загрузки
-Bootstrap нужен интернет. Собственные шаблоны и Django ORM пока не добавлены.
+HTML находится в Django-шаблонах. Представления подготавливают контекст и
+вызывают `render()`. Функция `page()` удалена. Общая структура сайта находится
+в `templates/base.html`, навигация — в `templates/includes/navigation.html`.
+Дочерние страницы используют `extends` и блоки `title`, `content`.
+
+Шаблоны приложений:
+
+- `homepage/templates/homepage/index.html` — главная;
+- `catalog/templates/catalog/service_list.html`, `service_detail.html` — услуги;
+- `catalog/templates/catalog/queue_list.html`, `queue_detail.html` — очереди;
+- `catalog/templates/catalog/includes/service_card.html` — карточка услуги;
+- `ticket_pages/templates/ticket_pages/ticket_list.html`, `ticket_detail.html` — талоны;
+- `ticket_pages/templates/ticket_pages/includes/ticket_status.html` — статус талона;
+- `templates/404.html` — общая страница ошибки.
+
+В `queue_site/settings.py` параметр `DIRS` указывает на общий каталог `templates`,
+а `APP_DIRS=True` включает поиск шаблонов приложений.
+Списки выводятся циклами `for` с веткой `empty`. Условия `if` показывают статусы
+и сообщения об отсутствующих объектах. Фильтры `length`, `default` и `date`
+используются для количества записей, названий и времени выдачи талонов.
+Вывод значений через `{{ ... }}` автоматически экранируется Django.
+
+Ссылки формируются через тег `url`. Пространства имён: `homepage`, `catalog`,
+`queues` и `tickets`. Например, `catalog:service_detail` получает ID услуги,
+а `tickets:ticket_detail` — ID талона. Адреса страниц ПР5 сохранены.
+
+Оформление использует Bootstrap 5.3.3 через CDN и собственный файл
+`homepage/static/homepage/css/style.css`. Логотип талона находится в
+`homepage/static/homepage/img/logo.svg`. Файл `homepage/static/homepage/js/main.js`
+подставляет текущий год в подвал. Все ресурсы подключаются тегом `static`.
+Для загрузки Bootstrap нужен интернет. Django ORM пока не используется.
+
+Проверка статических файлов:
+
+```bash
+python manage.py findstatic homepage/css/style.css
+python manage.py findstatic homepage/img/logo.svg
+python manage.py findstatic homepage/js/main.js
+```
 Служебная SQLite-база Django создаётся командой `migrate` и не хранится в Git.
 Данные предметной области по-прежнему находятся в JSON.
 
-Несуществующий ID возвращает HTTP 404 из view-функции. Неизвестный URL
+Для отсутствующего ID view передаёт `None` в шаблон и задаёт статус 404.
+Шаблон показывает сообщение через ветку `else`. Неизвестный URL
 обрабатывает `homepage.views.page_not_found`, подключённый через `handler404`
 в корневом `queue_site/urls.py`. Для проверки общей страницы 404 временно
 установите `DEBUG = False` в `queue_site/settings.py` и откройте `/nonexistent/`.
@@ -178,6 +215,7 @@ JSON содержит четыре списка: `users`, `services`, `queues`, 
 - ПР2: коллекции, функции, модули, меню, JSON и тесты.
 - ПР3: классы `User`, `Service`, `Queue`, `Ticket` и коллекции объектов.
 - ПР5: Django-проект, маршруты, view-функции, HTML/CSS/Bootstrap и 404.
+- ПР6: Django Templates, контекст, именованные URL, CSS, изображение и JavaScript.
 
 Функции ПР1 сохранены и используются методами классов:
 `can_issue_ticket`, `create_ticket_number` — в `queues.py`;
@@ -188,5 +226,5 @@ JSON содержит четыре списка: `users`, `services`, `queues`, 
 
 ## План развития
 
-В дальнейшем планируется добавить шаблоны Django, ORM, регистрацию и вход,
+В дальнейшем планируется добавить ORM, формы, регистрацию и вход,
 разграничение прав, CRUD-операции, REST API, Docker и CI/CD.

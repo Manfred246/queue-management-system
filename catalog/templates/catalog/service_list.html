@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Услуги — Система управления очередью{% endblock %}
+
+{% block content %}
+    <h1>Услуги</h1>
+    <p>Всего услуг: {{ services|length }}</p>
+    {% for service in services %}
+        {% include "catalog/includes/service_card.html" with service=service only %}
+    {% empty %}
+        <p>Услуги не найдены.</p>
+    {% endfor %}
+{% endblock %}

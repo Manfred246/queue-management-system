@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if queue %}{{ queue.name }}{% else %}Очередь не найдена{% endif %}
+    — Система управления очередью
+{% endblock %}
+
+{% block content %}
+    {% if queue %}
+        <article class="card">
+            <div class="card-body">
+                <h1>{{ queue.name }}</h1>
+                <p>ID очереди: {{ queue.id }}</p>
+                <p>Услуга: <a href="{% url 'catalog:service_detail' queue.service.id %}">{{ queue.service.name }}</a></p>
+                <p>Очередь {% if queue.is_open %}открыта{% else %}закрыта{% endif %}.</p>
+                <p>Выдача талонов {% if queue.can_issue_ticket %}разрешена{% else %}запрещена{% endif %}.</p>
+                <p>Активных талонов: {{ active_count }}</p>
+            </div>
+        </article>
+    {% else %}
+        <h1 class="text-danger">Очередь не найдена</h1>
+        <p>Очередь с указанным идентификатором отсутствует.</p>
+    {% endif %}
+    <a class="btn btn-outline-secondary mt-3" href="{% url 'queues:queues' %}">К очередям</a>
+{% endblock %}

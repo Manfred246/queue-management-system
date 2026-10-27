@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Очереди — Система управления очередью{% endblock %}
+
+{% block content %}
+    <h1>Очереди</h1>
+    <p>Всего очередей: {{ queues|length }}</p>
+    <ul class="list-group">
+        {% for queue in queues %}
+            <li class="list-group-item">
+                <a href="{% url 'queues:queue_detail' queue.id %}">{{ queue.name }}</a>
+                — {{ queue.service.name }}:
+                {% if queue.is_open %}открыта{% else %}закрыта{% endif %}
+            </li>
+        {% empty %}
+            <li class="list-group-item">Очереди не найдены.</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

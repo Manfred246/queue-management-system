@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if service %}{{ service.name }}{% else %}Услуга не найдена{% endif %}
+    — Система управления очередью
+{% endblock %}
+
+{% block content %}
+    {% if service %}
+        <article class="card service-card">
+            <div class="card-body">
+                <h1>{{ service.name|default:"Без названия" }}</h1>
+                <p>ID услуги: {{ service.id }}</p>
+                <p>Среднее время обслуживания: {{ service.average_service_time }} мин.</p>
+                {% if service.is_available %}
+                    <p>Услуга <span class="badge bg-success">доступна</span></p>
+                {% else %}
+                    <p>Услуга <span class="badge bg-secondary">недоступна</span></p>
+                {% endif %}
+                <p>Очереди этой услуги:</p>
+                <ul>
+                    {% for queue in queues %}
+                        <li><a href="{% url 'queues:queue_detail' queue.id %}">{{ queue.name }}</a></li>
+                    {% empty %}
+                        <li>Очередей пока нет.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </article>
+    {% else %}
+        <h1 class="text-danger">Услуга не найдена</h1>
+        <p>Услуга с указанным идентификатором отсутствует.</p>
+    {% endif %}
+    <a class="btn btn-outline-secondary mt-3" href="{% url 'catalog:services' %}">К услугам</a>
+{% endblock %}
