@@ -9,7 +9,7 @@
         {% for queue in queues %}
             <li class="list-group-item">
                 <a href="{% url 'queues:queue_detail' queue.id %}">{{ queue.name }}</a>
-                — {{ queue.service.name }}:
+                — {{ queue.service_name }}:
                 {% if queue.is_open %}открыта{% else %}закрыта{% endif %}
             </li>
         {% empty %}

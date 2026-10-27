@@ -4,6 +4,14 @@
 
 {% block content %}
     <h1>Услуги</h1>
+    <form method="get" class="mb-3">
+        <label for="max-minutes">Время обслуживания до, мин.:</label>
+        <input type="number" id="max-minutes" name="max_minutes" min="1"
+               value="{{ max_minutes }}">
+        <button type="submit" class="btn btn-primary">Найти</button>
+        <a href="{% url 'catalog:services' %}">Все услуги</a>
+    </form>
+    {% if error %}<p class="text-danger">{{ error }}</p>{% endif %}
     <p>Всего услуг: {{ services|length }}</p>
     {% for service in services %}
         {% include "catalog/includes/service_card.html" with service=service only %}

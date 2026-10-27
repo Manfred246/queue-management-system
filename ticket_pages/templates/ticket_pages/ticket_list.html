@@ -4,12 +4,21 @@
 
 {% block content %}
     <h1>Талоны</h1>
+    <form method="get" class="mb-3">
+        <label for="state">Показать:</label>
+        <select id="state" name="state">
+            <option value="active" {% if state == "active" %}selected{% endif %}>Активные</option>
+            <option value="all" {% if state == "all" %}selected{% endif %}>Все талоны</option>
+            <option value="cancelled" {% if state == "cancelled" %}selected{% endif %}>Отменённые</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Показать</button>
+    </form>
     <p>Всего талонов: {{ tickets|length }}</p>
     <ul class="list-group">
         {% for ticket in tickets %}
             <li class="list-group-item">
                 <a href="{% url 'tickets:ticket_detail' ticket.id %}">{{ ticket.display_number }}</a>
-                — {{ ticket.user.name }}, {{ ticket.service.name }}
+                — {{ ticket.user_name }}, {{ ticket.service_name }}
                 <p>Время выдачи: {{ ticket.issued_at|date:"d.m.Y H:i" }}</p>
                 {% include "ticket_pages/includes/ticket_status.html" %}
             </li>

@@ -11,9 +11,9 @@
             <div class="card-body">
                 <h1>Талон {{ ticket.display_number }}</h1>
                 <p>ID талона: {{ ticket.id }}</p>
-                <p>Посетитель: {{ ticket.user.name }}</p>
-                <p>Услуга: <a href="{% url 'catalog:service_detail' ticket.service.id %}">{{ ticket.service.name }}</a></p>
-                <p>Очередь: <a href="{% url 'queues:queue_detail' ticket.queue.id %}">{{ ticket.queue.name }}</a></p>
+                <p>Посетитель: {{ ticket.user_name }}</p>
+                <p>Услуга: <a href="{% url 'catalog:service_detail' ticket.service_id %}">{{ ticket.service_name }}</a></p>
+                <p>Очередь: <a href="{% url 'queues:queue_detail' ticket.queue_id %}">{{ ticket.queue_name }}</a></p>
                 <p>Статус: {% include "ticket_pages/includes/ticket_status.html" %}</p>
                 <p>Время выдачи: {{ ticket.issued_at|date:"d.m.Y H:i" }}</p>
                 <p>Ожидание: {{ wait }} мин.</p>
